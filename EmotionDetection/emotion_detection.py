@@ -1,14 +1,28 @@
-# emotion_detection.py
 import requests
 
 _EMOTION_URL = "https://sn-watson-emotion.labs.skills.network/v1/watson.runtime.nlp.v1/NlpService/EmotionPredict"
 _HEADERS = {"grpc-metadata-mm-model-id": "emotion_aggregated-workflow_lang_en_stock"}
 
+def _extract_emotions_from_response(data):
+    try:
+        emo = data["emotionPredictions"][0].get("emotion")
+        if isinstance(emo, dict):
+            return {k: float(emo.get(k, 0.0)) for k in ("anger", "disgust", "fear", "joy", "sadness")}
+    except Exception:
+        pass
+
+    try:
+        mentions = data["emotionPredictions"][0].get("emotionMentions", [])
+        if mentions and isinstance(mentions, list):
+            for m in mentions:
+                if "emotion" in m and isinstance(m["emotion"], dict):
+                    return {k: float(m["emotion"].get(k, 0.0)) for k in ("anger", "disgust", "fear", "joy", "sadness")}
+    except Exception:
+        pass
+
+    return {k: 0.0 for k in ("anger", "disgust", "fear", "joy", "sadness")}
+
 def emotion_detector(text_to_analyze: str):
-    """
-    Send text_to_analyze to the Watson EmotionPredict endpoint and
-    return the 'text' attribute from the response object.
-    """
     if not isinstance(text_to_analyze, str):
         raise TypeError("text_to_analyze must be a string")
 
@@ -17,12 +31,14 @@ def emotion_detector(text_to_analyze: str):
     resp.raise_for_status()
     data = resp.json()
 
-    # Return the span text if present
-    try:
-        return data["emotionPredictions"][0]["emotionMentions"][0]["span"]["text"]
-    except Exception:
-        # Fallback: return raw_document.text if present
-        if isinstance(data.get("raw_document"), dict) and "text" in data["raw_document"]:
-            return data["raw_document"]["text"]
-        # Last resort: return the whole JSON as a string
-        return str(data)
+    emotions = _extract_emotions_from_response(data)
+    dominant = max(emotions.items(), key=lambda kv: kv[1])[0]
+
+    return {
+        "anger": emotions["anger"],
+        "disgust": emotions["disgust"],
+        "fear": emotions["fear"],
+        "joy": emotions["joy"],
+        "sadness": emotions["sadness"],
+        "dominant_emotion": dominant
+    }
