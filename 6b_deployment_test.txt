@@ -1,0 +1,1 @@
+For the given statement, the system response is 'anger': 0.029103195, 'disgust': 0.0067921067, 'fear': 0.027528232, 'joy': 0.876574 and 'sadness': 0.06151191. The dominant emotion is joy.
